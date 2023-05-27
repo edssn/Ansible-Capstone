@@ -1,4 +1,4 @@
-- name: restart apache2
+- name: restart apache
   ansible.builtin.systemd:
-    name: apache2
+    name: '{{ apache_service }}'
     state: restarted

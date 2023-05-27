@@ -1,7 +1,43 @@
-- name: Install Packages for wordpress
-  ansible.builtin.apt:
+- name: Print My Os Family
+  ansible.builtin.debug:
+    var: ansible_os_family
+
+- name: Print My Distribution
+  ansible.builtin.debug:
+    var: ansible_distribution
+
+- name: Remove all Installed PHP Packages
+  ansible.builtin.package:
+    name: php*
+    state: absent
+
+- name: Upgrade all packages
+  ansible.builtin.package:
+    name: '*'
+    state: latest
+
+- name: Install PHP prerequisite Packages (CentOS)
+  ansible.builtin.yum:
     name: 
-      - apache2
+      - epel-release
+      - yum-utils
+      - https://rpms.remirepo.net/enterprise/remi-release-7.rpm
+    state: latest
+    update_cache: yes
+  when: ansible_distribution == "CentOS"
+
+- name: Disable all remi-php Repos (CentOS)
+  ansible.builtin.command: yum-config-manager --disable remi-php*
+  when: ansible_distribution == "CentOS"
+
+- name: Enable Remi-Repo74 (CentOS)
+  ansible.builtin.command: yum-config-manager --enable remi-php74
+  when: ansible_distribution == "CentOS"
+
+- name: Install Packages for wordpress
+  ansible.builtin.package:
+    name: 
+      - '{{ apache_lib }}'
       - php
       - php-pear
       - php-cgi
@@ -16,12 +52,11 @@
       - php-intl
       - php-zip
       - php-imap
-      - php-imagick
     update_cache: yes
 
-- name: Enable service httpd and ensure it is not masked
+- name: Enable service apache and ensure it is not masked
   ansible.builtin.systemd:
-    name: apache2
+    name: '{{ apache_lib }}'
     enabled: true
     masked: no
     state: started
@@ -31,8 +66,8 @@
     src: https://wordpress.org/latest.tar.gz
     dest: /var/www/html/
     remote_src: yes
-    owner: codio
-    group: www-data
+    owner: '{{ apache_user }}'
+    group: '{{ apache_user }}'
     extra_opts: [--strip-components=1]
 
 - name: Update Config  
@@ -43,8 +78,8 @@
 - name: Change file ownership, group and permissions
   ansible.builtin.file:
     path: /var/www/html
-    owner: codio
-    group: www-data
+    owner: '{{ apache_user }}'
+    group: '{{ apache_user }}'
     mode: u=rwX,g=rwX,o=rX 
     recurse: true
     state: directory
@@ -56,37 +91,40 @@
 
 - name: Enable .htaccess files in Apache config
   ansible.builtin.replace:
-    path:  /etc/apache2/apache2.conf
-    after: '<Directory /var/www/>'
+    path:  '{{ apache_config_file }}'
+    after: '<Directory *"*/var/www/*"*>'
     before: '</Directory>'
     regexp: 'AllowOverride None'
-    replace: |
-      AllowOverride All
-      RequestHeader set X-Forwarded-Proto "https"
-      RequestHeader set X-Forwarded-Port "443"
+    replace: AllowOverride All
   notify:
-    - restart apache2
+    - restart apache
 
-- name: Create a symbolic link for mod_headers
+- name: Create a symbolic link for mod_headers (Only Ubuntu)
   ansible.builtin.file:
     src: /etc/apache2/mods-available/headers.load
     dest: /etc/apache2/mods-enabled/headers.load
     state: link
   notify:
-    - restart apache2
+    - restart apache
+  when: ansible_os_family == "Debian"
 
-- name: Create a symbolic link for mod_headers
-  ansible.builtin.file:
-    src: /etc/apache2/mods-available/headers.load
-    dest: /etc/apache2/mods-enabled/headers.load
-    state: link
-  notify:
-    - restart apache2
+- name: Install Packages for manage firewalld (CentOS)
+  ansible.builtin.package:
+    name: 
+      - python-firewall
+    update_cache: yes
+  when: ansible_os_family == "RedHat"
 
-- name: Enables port 3000
-  ansible.builtin.replace:
-    path:  /etc/apache2/ports.conf 
-    regexp: 'Listen 80'
-    replace: Listen 3000
-  notify:
-    - restart apache2
+- name: Permit traffic in default zone for http service (CentOS)
+  ansible.posix.firewalld:
+    service: http
+    permanent: true
+    state: enabled
+  when: ansible_os_family == "RedHat"
+
+- name: Permit traffic in default zone for http service (Ubuntu)
+  community.general.ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
+  when: ansible_os_family == "Debian"

@@ -1,0 +1,4 @@
+apache_lib: apache2
+apache_service: apache2
+apache_user: www-data
+apache_config_file: /etc/apache2/apache2.conf

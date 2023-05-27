@@ -1,0 +1,4 @@
+apache_lib: httpd
+apache_service: httpd
+apache_user: apache
+apache_config_file: /etc/httpd/conf/httpd.conf

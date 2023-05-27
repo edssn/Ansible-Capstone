@@ -1,8 +1,17 @@
-- hosts: localhost
+- hosts: webservers
   become: yes
   vars_files:
     - vars/main.yml
+    - [ "vars/{{ ansible_facts['os_family'] }}.yml" ]
 
   roles:
     - role: wordpress 
     - role: geerlingguy.mysql
+
+  # tasks:
+  #   - name: Ping my hosts
+  #     ansible.builtin.ping:
+  #   - name: Print Message
+  #     ansible.builtin.debug:
+  #       msg: Hello World
+    
