@@ -1,4 +1,5 @@
-- hosts: webservers
+- hosts: all
+  remote_user: ansibleuser
   become: yes
   vars_files:
     - vars/main.yml
@@ -7,11 +8,4 @@
   roles:
     - role: wordpress 
     - role: geerlingguy.mysql
-
-  # tasks:
-  #   - name: Ping my hosts
-  #     ansible.builtin.ping:
-  #   - name: Print Message
-  #     ansible.builtin.debug:
-  #       msg: Hello World
     
